@@ -29,9 +29,17 @@ Basically, for the purpose of a backup.
 See this https://space.ros.org
 
 ## How to use?
-Put this package in your ros2_ws/src
-
-and build, run just same as usual ros package projects
+1. Put this package in your ros2_ws/src
+2. Change address on the package(i will improve this soon)
+```
+vim ~/ros2_ws/src/krpcros/krpcros/publisher_member_function.py
+:40
+```
+ default value was
+```
+ self.conn = krpc.connect(name='krpcros', address='192.168.0.3')
+```
+3. Build and run just same as usual ros package projects
 ```
 cd ~/ros2_ws
 colcon build
