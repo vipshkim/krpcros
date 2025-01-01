@@ -1,0 +1,206 @@
+import rclpy
+import numpy as np
+from numba import njit
+
+import krpc
+from rclpy.node import Node
+
+from std_msgs.msg import String, Header
+from geometry_msgs.msg import Pose, Twist, AccelStamped
+from rosgraph_msgs.msg import Clock
+
+import math
+
+@njit(fastmath=True)
+def calculate_gravity_ecef(grav_param, current_position):
+    x, y, z = current_position
+    r_sq = x * x + y * y + z * z
+    r = np.sqrt(r_sq)
+    # 방어적 프로그래밍: r이 0인 경우를 처리
+    if r == 0.0:
+        return np.array([0.0, 0.0, 0.0])
+    factor = -grav_param / (r_sq * r)
+    return np.array([factor * x, factor * y, factor * z])
+
+def left_to_right(data):
+    """
+    ECEF ↔ KCKF 좌표계 간의 벡터와 사원수를 변환합니다.
+    """
+    return [ (item[0], item[2], item[1]) + item[3:] for item in data ]
+
+class MinimalPublisher(Node):
+
+    def __init__(self):
+        super().__init__('minimal_publisher')
+        self.conn = krpc.connect(name='krpcros', address='191.168.0.3')
+        self.vessel = self.conn.space_center.active_vessel
+        self.body = self.vessel.orbit.body
+        self.root = self.vessel.parts.root
+
+
+        eciframe = self.body.non_rotating_reference_frame
+        ecefframe = self.body.reference_frame
+        partframe = self.root.reference_frame
+        self.position_call = self.conn.add_stream(self.root.position, ecefframe)
+        self.orientation_call = self.conn.add_stream(self.root.rotation, ecefframe)
+        self.velocity_eci_call = self.conn.add_stream(self.root.velocity, eciframe)
+        self.velocity_call = self.conn.add_stream(self.root.velocity, ecefframe)
+        self.angvel_call = self.conn.add_stream(self.root.vessel.angular_velocity, ecefframe)
+        self.grav_param_call = self.conn.add_stream(getattr, self.body, 'gravitational_parameter')
+        self.situation_call = self.conn.add_stream(getattr, self.vessel, 'situation')
+        self.stamp_call = self.conn.add_stream(getattr, self.conn.space_center, 'ut')
+        
+        
+        self.slow_stream_init();
+        self.fast_stream_init();
+
+
+        self.slow_timer = self.create_timer(0.1, self.slow_stream_callback)
+        #self.stamp_call.add_callback(self.fast_stream_callback)
+        self.fast_timer = self.create_timer(0.01, self.fast_stream_callback)
+
+    def slow_stream_init(self):
+        self.body_rotational_speed_call = self.conn.add_stream(getattr, self.body, 'rotational_speed')
+        self.omg_scr = self.body_rotational_speed_call()
+        self.omg_vec = np.array([0.0,0.0,self.omg_scr])
+
+        self.debug_pub = self.create_publisher(String, 'krpcros/debug', 10)
+        self.i = 0
+
+    def slow_stream_callback(self):
+        #각속도
+        self.omg_scr = self.body_rotational_speed_call()
+        self.omg_vec = np.array([0.0,0.0,self.omg_scr])
+
+        #self.get_logger().info(f'{}')
+
+        #publisher
+        msg=String()
+        msg.data = "updating"
+        self.debug_pub.publish(msg)
+
+
+    def fast_stream_init(self):
+        #krpc stream
+        self.stamp = self.stamp_call()
+
+        self.rate_msg = Twist()
+        current_velocity, current_angvel = left_to_right([self.velocity_call(),
+                                            self.angvel_call() ])
+        self.rate_msg.linear.x = current_velocity[0]
+        self.rate_msg.linear.y = current_velocity[1]
+        self.rate_msg.linear.z = current_velocity[2]
+        self.rate_msg.angular.x = -current_angvel[0]
+        self.rate_msg.angular.y = -current_angvel[1]
+        self.rate_msg.angular.z = -current_angvel[2]
+
+        #ros stream
+        self.pose_pub_raw = self.create_publisher(Pose, 'krpcros/pose_raw', 10)
+        self.rate_pub_raw = self.create_publisher(Twist, 'krpcros/rate_raw', 10)
+        self.accel_pub = self.create_publisher(AccelStamped, 'krpcros/accel', 10)
+        self.clock_pub = self.create_publisher(Clock, '/clock', 10)
+
+        self.header = Header()
+        self.pose_msg = Pose()
+        self.rate_msg = Twist()
+        self.accel_msg = AccelStamped()
+        self.clock_msg = Clock()
+
+    def fast_stream_callback(self):
+        current_stamp = self.stamp_call();
+        #timestamp
+        header = self.header
+        pose_msg = self.pose_msg
+        rate_msg = self.rate_msg
+        accel_msg = self.accel_msg
+        clock_msg = self.clock_msg
+
+
+        sec, frac = divmod(current_stamp,1)
+        header.stamp.sec = int(sec)
+        header.stamp.nanosec = int(frac*1e9)
+
+        #Position
+        current_position, current_velocity, current_angvel, current_orientation = left_to_right([ self.position_call(),
+                                            self.velocity_call(),
+                                            self.angvel_call(),
+                                              self.orientation_call() ])
+
+        pose_msg.position.x = current_position[0]
+        pose_msg.position.y = current_position[1]
+        pose_msg.position.z = current_position[2]
+        pose_msg.orientation.x = current_orientation[0]
+        pose_msg.orientation.y = current_orientation[1]
+        pose_msg.orientation.z = current_orientation[2]
+        pose_msg.orientation.w = current_orientation[3]
+        
+        cv_x = current_velocity[0]
+        cv_y = current_velocity[1]
+        cv_z = current_velocity[2]
+        ca_x = -current_angvel[0]
+        ca_y = -current_angvel[1]
+        ca_z = -current_angvel[2]
+        
+        delta_velocity_x = cv_x - rate_msg.linear.x
+        delta_velocity_y = cv_y - rate_msg.linear.y
+        delta_velocity_z = cv_z - rate_msg.linear.z
+        delta_angvel_x = ca_x - rate_msg.angular.x
+        delta_angvel_y = ca_y - rate_msg.angular.y
+        delta_angvel_z = ca_z - rate_msg.angular.z
+
+        rate_msg.linear.x = cv_x
+        rate_msg.linear.y = cv_y
+        rate_msg.linear.z = cv_z
+        rate_msg.angular.x = ca_x
+        rate_msg.angular.y = ca_y
+        rate_msg.angular.z = ca_z
+        
+        accel_msg.header = header;
+
+        vel_eci_ecef = -np.cross(self.omg_vec, current_velocity)
+        acc_eci_ecef = -2.0 * np.cross(self.omg_vec, vel_eci_ecef)
+        ground_accel = calculate_gravity_ecef( self.grav_param_call(), current_position)
+
+        dt = current_stamp-self.stamp;
+        if dt==0:
+            return;
+        print(f'delta_velocity_x/dt, delta_velocity_y/dt, \t{acc_eci_ecef}\t{ground_accel}')
+        accel_msg.accel.linear.x = delta_velocity_x/dt + acc_eci_ecef[0] + ground_accel[0]
+        accel_msg.accel.linear.y = delta_velocity_y/dt + acc_eci_ecef[1] + ground_accel[1]
+        accel_msg.accel.linear.z = delta_velocity_z/dt + acc_eci_ecef[2] + ground_accel[2]
+        accel_msg.accel.angular.x = delta_angvel_x/dt
+        accel_msg.accel.angular.y = delta_angvel_y/dt
+        accel_msg.accel.angular.z = delta_angvel_z/dt
+
+        self.stamp = current_stamp
+        self.rate = rate_msg
+        self.rate_msg.linear.x = rate_msg.linear.x
+        self.rate_msg.linear.y = rate_msg.linear.y
+        rate_msg.linear.z = self.rate_msg.linear.z
+        rate_msg.angular = self.rate_msg.angular
+
+        #simulation clock
+        clock_msg.clock = header.stamp
+
+        #publish
+        self.clock_pub.publish(clock_msg)
+        self.pose_pub_raw.publish(pose_msg)
+        self.rate_pub_raw.publish(rate_msg)
+        self.accel_pub.publish(accel_msg)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    minimal_publisher = MinimalPublisher()
+
+    rclpy.spin(minimal_publisher)
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
+    minimal_publisher.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
