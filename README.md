@@ -3,8 +3,8 @@ It transfor KSP data into ros network using krpc mod, change coordnate left hand
 
 
 As you know, KSP(Kerbal Space Program) is useful simulation game.
-One problem is they use left-hand coordinate(KCKF: Kerbin-Center Kerbin-Fixed).
-This ros package turn KCKF to ECEF normal right-hand coordinate,
+One problem is they use left-hand coordinate(KCKF: Kerbin-Centered, Kerbin-Fixed).
+This ros package turn KCKF to ECEF(Earth-Centered, Earth-Fixed) normal right-hand coordinate,
 include linear and angular position and rate.
 
 The other issue is, as i know KRPC dose not provied any acceleration data just like imu sensor.
