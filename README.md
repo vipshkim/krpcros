@@ -19,6 +19,7 @@ It is tested on
 * [KRPC 0.5.4 ksp mod](https://github.com/krpc/krpc)
 * [ubuntu 24.04 for raspberrypi](https://ubuntu.com/download/raspberry-pi)
 * [raspberrypi 5](https://www.raspberrypi.com/products/raspberry-pi-5/)
+* [ros2 jazzy](https://docs.ros.org/en/jazzy/index.html)
 
 
 
@@ -27,6 +28,12 @@ Basically, for the purpose of a backup.
 
 ## What is the ROS?
 See this https://space.ros.org
+
+## Install requirements
+1. [ros](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html)
+2. [numba](https://numba.readthedocs.io/en/stable/user/installing.html#installing-using-pip-on-x86-x86-64-platforms)
+3. [numpy](https://numpy.org/install/)
+4. [KRPC Client](https://krpc.github.io/krpc/python/client.html#installing-the-library)
 
 ## How to use?
 1. Put this package in your ros2_ws/src
