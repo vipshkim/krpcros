@@ -8,7 +8,7 @@ This ros package turn KCKF to ECEF(Earth-Centered, Earth-Fixed) normal right-han
 include linear and angular position and rate.
 
 The other issue is, as i know KRPC dose not provied any acceleration data just like imu sensor.
-This calcuate not only calculate it by delta-velocity devide by delta-time, but also calcuate gravitational, centrefigal and coriolis acceleration effect.
+This calculate not only calculate it by delta-velocity devide by delta-time, but also calculate gravitational, centrefigal and coriolis acceleration effect.
 This calculation use there own body data(such as krpc.space_center.active_vessel.orbit.body.rotation_speed), that may can calculate effectively on chages there body.
 
 
