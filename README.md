@@ -49,7 +49,7 @@ vim ~/ros2_ws/src/krpcros/krpcros/publisher_member_function.py
 3. Build and run just same as usual ros package projects
 ```
 cd ~/ros2_ws
-colcon build
+colcon build --packages-select krpcros
 . install/setup.bash
 ros2 run krpcros talker
 ```
