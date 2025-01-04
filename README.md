@@ -58,3 +58,7 @@ and, or before run a node, you need launch any vessel once.
 node will wait until create vessel object.
 
 after node run, it will publish data into ros2 network.
+
+# New Feature
+Now this subscribe "krpcros/joy" for controlling custom action groups(button) 0-9 and axis(axis) 1-4
+-WIP
