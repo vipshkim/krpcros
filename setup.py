@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'talker=krpcros.publisher_member_function:main',
+            'conn=krpcros.member_function:main',
         ],
     },
 )
