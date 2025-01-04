@@ -7,6 +7,7 @@ from rclpy.node import Node
 
 from std_msgs.msg import String, Header, UInt8
 from geometry_msgs.msg import Pose, Twist, AccelStamped
+from sensor_msgs.msg import Joy
 from rosgraph_msgs.msg import Clock
 
 import math
@@ -51,6 +52,27 @@ class MinimalPublisher(Node):
         self.slow_timer = self.create_timer(0.001, self.fast_stream_callback)
         #self.stamp_call.add_callback(self.fast_stream_callback)
         #self.fast_timer = self.create_timer(0.005, self.fast_stream_callback)
+
+        init_listener_callback()
+        self.subscription = self.create_subscription(Joy, 'krpcros/joy', self.joy_listener_callback,10)
+        self.subscription
+
+    def init_listener_callback(self):
+        self.msg_joy = Joy()
+        self.msg_joy.buttons = (0,0,0,0,0,0,0,0,0)
+        self.axis_names = [f"custom_axis{i:02d}" for i in range(1, 4)]
+    def joy_listener_callback(self, msg):
+        control = self.vessel.control
+        for i in range(len(msg.axis)):
+            if i > 4:
+                break
+            setattr(control,self.axis_names[i],msg.axis[i])
+        for j in range(len(msg.button)):
+            if j > 9:
+                break
+            if self.msg_joy.buttons[j] != msg.buttons[j]:
+                self.msg_joy.buttions[j] = msg.buttons[j]
+                control.set_action_group(j,msg.buttons[j])
 
     def init_calls(self):
         self.vessel = self.conn.space_center.active_vessel
