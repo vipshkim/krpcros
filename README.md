@@ -51,7 +51,7 @@ vim ~/ros2_ws/src/krpcros/krpcros/publisher_member_function.py
 cd ~/ros2_ws
 colcon build --packages-select krpcros
 . install/setup.bash
-ros2 run krpcros talker
+ros2 run krpcros conn
 ```
 
 and, or before run a node, you need launch any vessel once.
