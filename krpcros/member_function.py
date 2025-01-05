@@ -50,10 +50,8 @@ class MinimalPublisher(Node):
 
         self.slow_timer = self.create_timer(0.1, self.slow_stream_callback)
         self.slow_timer = self.create_timer(0.001, self.fast_stream_callback)
-        #self.stamp_call.add_callback(self.fast_stream_callback)
-        #self.fast_timer = self.create_timer(0.005, self.fast_stream_callback)
 
-        init_listener_callback()
+        self.init_listener_callback()
         self.subscription = self.create_subscription(Joy, 'krpcros/joy', self.joy_listener_callback,10)
         self.subscription
 
@@ -61,6 +59,7 @@ class MinimalPublisher(Node):
         self.msg_joy = Joy()
         self.msg_joy.buttons = (0,0,0,0,0,0,0,0,0)
         self.axis_names = [f"custom_axis{i:02d}" for i in range(1, 4)]
+    
     def joy_listener_callback(self, msg):
         control = self.vessel.control
         for i in range(len(msg.axis)):
@@ -255,11 +254,11 @@ def main(args=None):
     rclpy.init(args=args)
     minimal_publisher = MinimalPublisher()
 
-    rclpy.spin(minimal_publisher)
+    try:
+        rclpy.spin(minimal_publisher)
+    except KeyboardInterrupt:
+        pass
 
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
     minimal_publisher.destroy_node()
     rclpy.shutdown()
 
