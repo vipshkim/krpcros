@@ -49,7 +49,7 @@ class MinimalPublisher(Node):
         self.fast_stream_init();
 
         self.slow_timer = self.create_timer(0.1, self.slow_stream_callback)
-        self.slow_timer = self.create_timer(0.001, self.fast_stream_callback)
+        self.fast_timer = self.create_timer(0.001, self.fast_stream_callback)
 
         self.init_listener_callback()
         self.subscription = self.create_subscription(Joy, 'krpcros/joy', self.joy_listener_callback,10)
@@ -62,15 +62,15 @@ class MinimalPublisher(Node):
     
     def joy_listener_callback(self, msg):
         control = self.vessel.control
-        for i in range(len(msg.axis)):
+        for i in range(len(msg.axes)):
             if i > 4:
                 break
-            setattr(control,self.axis_names[i],msg.axis[i])
-        for j in range(len(msg.button)):
+            setattr(control,self.axis_names[i],msg.axes[i])
+        for j in range(len(msg.buttons)):
             if j > 9:
                 break
             if self.msg_joy.buttons[j] != msg.buttons[j]:
-                self.msg_joy.buttions[j] = msg.buttons[j]
+                self.msg_joy.buttons[j] = msg.buttons[j]
                 control.set_action_group(j,msg.buttons[j])
 
     def init_calls(self):
